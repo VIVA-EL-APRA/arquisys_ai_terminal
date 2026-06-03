@@ -13,58 +13,76 @@ ArquiSysAI es una herramienta de inteligencia artificial agéntica que genera di
 - **Interfaz TUI**: Terminal interactiva con historial de sesiones
 - **Multi-diagrama**: Genera varios diagramas en una misma sesión
 
-## Instalación
-
-### Requisitos previos
+## Requisitos previos
 
 - **Node.js** v16 o superior
 - **Python** 3.10 o superior
 - **pip** (gestor de paquetes de Python)
 
-### Instalación global vía npm
+## Descarga e instalación
+
+### Opción 1: Instalación vía npm (recomendada)
 
 ```bash
 npm install -g arquisys-ai
 ```
 
-Esto instalará el paquete y ejecutará el script de configuración automáticamente.
+Esto instalará el paquete globalmente y ejecutará el script de configuración automáticamente.
 
-### Configuración de API Key
-
-1. Obtén una API key gratuita en [https://opencode.ai](https://opencode.ai)
-2. El instalador crea automáticamente un archivo de configuración en `~/.arquisys-ai.env`
-3. Edita ese archivo y reemplaza `sk-placeholder-requires-setup` con tu API key:
-
-```
-OPENCODE_API_KEY=tu-api-key-aqui
-```
-
-### Instalación manual (sin npm)
+### Opción 2: Instalación manual desde GitHub
 
 ```bash
 # Clonar el repositorio
 git clone https://github.com/VIVA-EL-APRA/arquisys_ai_terminal.git
+
+# Entrar al directorio
 cd arquisys_ai_terminal
 
 # Instalar dependencias de Python
 pip install -r requirements.txt
-
-# Crear archivo de configuración
-copy %USERPROFILE%\.arquisys-ai.env
-# O en Linux/Mac: cp /dev/null ~/.arquisys-ai.env
-# Luego edita el archivo y agrega tu OPENCODE_API_KEY
 ```
 
-## Uso
+## Configuración de API Key
+
+1. Obtén una API key gratuita en [https://opencode.ai](https://opencode.ai) (crea una cuenta gratis)
+2. Crea el archivo de configuración en tu carpeta de usuario:
+
+   **Windows:**
+   ```bash
+   copy nul %USERPROFILE%\.arquisys-ai.env
+   ```
+
+   **Linux / Mac:**
+   ```bash
+   touch ~/.arquisys-ai.env
+   ```
+
+3. Abre el archivo `C:\Users\TuUsuario\.arquisys-ai.env` (Windows) o `~/.arquisys-ai.env` (Linux/Mac) y agrega:
+
+   ```
+   OPENCODE_API_KEY=tu-api-key-aqui
+   ```
+
+   Reemplaza `tu-api-key-aqui` por la API key que obtuviste en opencode.ai.
+
+## Iniciar el sistema
+
+### Si instalaste vía npm:
 
 ```bash
 arquisys-ai
 ```
 
-O si clonaste el repositorio manualmente:
+### Si clonaste el repositorio manualmente:
 
 ```bash
 python main.py
+```
+
+### Si instalaste vía npm pero no funciona el comando:
+
+```bash
+npx arquisys-ai
 ```
 
 ### Comandos disponibles en la TUI

@@ -1,6 +1,6 @@
 {
   "name": "arquisys-ai",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "description": "ArquiSysAI - IA Agéntica para generación de diagramas técnicos",
   "main": "main.py",
   "bin": {
@@ -28,6 +28,7 @@
     "ui/**/*.py",
     "cli.js",
     "setup.js",
-    "requirements.txt"
+    "requirements.txt",
+    "README.md"
   ]
 }

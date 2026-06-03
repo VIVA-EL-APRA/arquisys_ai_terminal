@@ -45,25 +45,8 @@ pip install -r requirements.txt
 ## Configuración de API Key
 
 1. Obtén una API key gratuita en [https://opencode.ai](https://opencode.ai) (crea una cuenta gratis)
-2. Crea el archivo de configuración en tu carpeta de usuario:
-
-   **Windows:**
-   ```bash
-   copy nul %USERPROFILE%\.arquisys-ai.env
-   ```
-
-   **Linux / Mac:**
-   ```bash
-   touch ~/.arquisys-ai.env
-   ```
-
-3. Abre el archivo `C:\Users\TuUsuario\.arquisys-ai.env` (Windows) o `~/.arquisys-ai.env` (Linux/Mac) y agrega:
-
-   ```
-   OPENCODE_API_KEY=tu-api-key-aqui
-   ```
-
-   Reemplaza `tu-api-key-aqui` por la API key que obtuviste en opencode.ai.
+2. Al ejecutar el sistema por primera vez, te pedirá automáticamente la API key y la guardará en `~/.arquisys-ai.env`
+3. Solo se solicita una vez, en el primer inicio
 
 ## Iniciar el sistema
 

@@ -1,7 +1,9 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+load_dotenv(Path.home() / ".arquisys-ai.env")
 
 # ── API OpenCode Zen ────────────────────────────────────────────────
 OPENCODE_API_KEY  = os.getenv("OPENCODE_API_KEY", "")

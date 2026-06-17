@@ -96,6 +96,11 @@ class AnalystAgent:
                 max_tokens=500,
             )
             text = re.sub(r"```json|```", "", text).strip()
+            # Find JSON object boundaries
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1:
+                text = text[start:end+1]
             return json.loads(text)
         except Exception as e:
             console.print(f"[yellow]Analyst fallback: {e}[/yellow]")
@@ -103,6 +108,7 @@ class AnalystAgent:
                 "tipo_diagrama":         session.forced_type or "desconocido",
                 "tiene_suficiente_info": True,
                 "pregunta_faltante":     None,
+                "opciones_clarificacion": None,
                 "formato_sugerido":      session.export_format or "mermaid",
                 "confianza":             "baja",
                 "solicitud_enriquecida": user_input,

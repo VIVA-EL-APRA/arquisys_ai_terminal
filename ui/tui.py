@@ -53,6 +53,8 @@ from tools.multi_diagram import generate_package, generate_custom_package, PACKA
 
 console = Console()
 
+DEAD_MODELS = {"minimax-m3-free", "minimax-m2.5-free", "qwen3.6-plus-free"}
+
 # ══════════════════════════════════════════════════════════════════
 #  Estilo visual
 # ══════════════════════════════════════════════════════════════════
@@ -70,6 +72,26 @@ STYLE = Style.from_dict({
     "completion-menu.completion.current": "bg:#58a6ff #0d1117 bold",
     "scrollbar.background":               "bg:#21262d",
     "scrollbar.button":                   "bg:#58a6ff",
+})
+
+DIALOG_STYLE = Style.from_dict({
+    "dialog":                             "bg:#0d1117 #e6edf3",
+    "dialog body":                        "bg:#0d1117 #e6edf3",
+    "dialog shadow":                      "bg:#000000",
+    "dialog.title":                       "bg:#161b22 #00d7ff bold",
+    "dialog.frame.label":                 "#00d7ff bold",
+    "dialog.frame.border":                "#444444",
+    "button":                             "bg:#21262d #e6edf3",
+    "button.hovered":                     "bg:#58a6ff #0d1117 bold",
+    "button.focused":                     "bg:#58a6ff #0d1117 bold",
+    "label":                              "#e6edf3",
+    "text-area":                          "bg:#0d1117 #e6edf3",
+    "input-field":                        "bg:#0d1117 #e6edf3",
+    "input-field.text":                   "#e6edf3",
+    "checkbox":                           "bg:#21262d #e6edf3",
+    "checkbox.selected":                  "bg:#58a6ff #0d1117",
+    "radio":                              "bg:#21262d #e6edf3",
+    "radio.selected":                     "bg:#58a6ff #0d1117",
 })
 
 # ══════════════════════════════════════════════════════════════════
@@ -138,6 +160,12 @@ def _normalize_text(value: str) -> str:
     return " ".join(normalized.split())
 
 
+def _word_in(text: str, word: str) -> bool:
+    """Checks if word appears as a whole word (not substring) in text."""
+    import re
+    return bool(re.search(r'\b' + re.escape(word) + r'\b', text))
+
+
 def infer_package_types_from_text(text: str) -> list[str]:
     """Detecta si el contexto pide explicitamente solo ciertos diagramas."""
     normalized = _normalize_text(text)
@@ -146,29 +174,20 @@ def infer_package_types_from_text(text: str) -> list[str]:
     if any(token in normalized for token in ("paquete completo", "todos los diagramas", "todo el paquete")):
         return []
 
-    restrictive = any(
-        token in normalized
-        for token in ("solo", "solamente", "unicamente", "unicamente", "quiero solo")
-    )
-
     detected: list[str] = []
     for phrase, dtype in TYPE_ALIASES.items():
         phrase_norm = _normalize_text(phrase)
-        if phrase_norm in normalized and dtype not in detected:
+        if _word_in(normalized, phrase_norm) and dtype not in detected:
             detected.append(dtype)
 
     for dtype in SUPPORTED_DIAGRAM_TYPES:
-        if dtype in normalized and dtype not in detected:
+        if _word_in(normalized, dtype) and dtype not in detected:
             detected.append(dtype)
 
     valid_package_types = {tipo for tipo, _ in PACKAGE_TYPES}
     detected = [dtype for dtype in detected if dtype in valid_package_types]
 
-    if restrictive and detected:
-        return detected
-    if len(detected) == 1 and "diagrama" in normalized:
-        return detected
-    return []
+    return detected
 
 HELP_COMMANDS = [
     ("/help", "Muestra esta ayuda"),
@@ -273,8 +292,12 @@ class ArquiSysAI_TUI:
         self._build_keybindings()
         self._build_app()
 
+        dead_msg = ""
+        if self.current_model in DEAD_MODELS:
+            dead_msg = f"  [WARN] El modelo '{self.current_model}' no funciona. Usa F3 para cambiarlo.\n"
         self._log_system(
             f"ArquiSysAI v{APP_VERSION} iniciado  |  modelo: {self.current_model}\n"
+            f"{dead_msg}"
             "Escribe tu solicitud en lenguaje natural o usa /help para ver comandos.\n"
             "F2 = editor de contexto textual  |  F3 = modelos  |  F5 = paquete/tipo forzado  |  Tab = autocompletar"
         )
@@ -690,6 +713,7 @@ class ArquiSysAI_TUI:
                 f"Actual: {current}\n"
                 "Deja vacio para usar la actual."
             ),
+            style=DIALOG_STYLE,
         ).run()
         if value is None:
             self._log_warn("Seleccion de carpeta cancelada.")
@@ -722,6 +746,7 @@ class ArquiSysAI_TUI:
                 "Si eliges deteccion automatica se usara la solicitud pendiente y el ultimo contexto."
             ),
             values=values,
+            style=DIALOG_STYLE,
         ).run()
 
         if selected is None:
@@ -758,12 +783,22 @@ class ArquiSysAI_TUI:
                 title="Agente de Clarificacion - Informacion Insuficiente",
                 text=question,
                 values=[(opt, opt) for opt in options],
+                style=DIALOG_STYLE,
             ).run()
             return selected
         return input_dialog(
             title="Agente de Clarificacion - Informacion Insuficiente",
             text=question,
+            style=DIALOG_STYLE,
         ).run()
+
+    def _a_mi_criterio(self, lowered: str) -> bool:
+        return lowered in (
+            "a mi criterio", "generar el diagrama a mi criterio",
+            "hazlo a tu criterio", "hazlo como quieras",
+            "hazlo tu", "tu decide", "tu decidiste", "como quieras",
+            "no se", "no lo se",
+        )
 
     def _run_clarification_cycle(self) -> bool:
         generation_text = self._generation_text()
@@ -773,6 +808,8 @@ class ArquiSysAI_TUI:
         for cycle in range(2):
             try:
                 analysis = self.analyst.analyze(generation_text, self.session)
+                if not isinstance(analysis, dict):
+                    analysis = {}
             except Exception as e:
                 self._log_warn(f"Analisis no disponible: {e}")
                 return True
@@ -784,6 +821,10 @@ class ArquiSysAI_TUI:
             if not has_question and not low_confidence:
                 ciclo_info = analysis
                 break
+            # If the AI detected a type even though info is "insufficient", use it
+            ai_tipo = analysis.get("tipo_diagrama", "")
+            if ai_tipo and ai_tipo != "desconocido":
+                self.session.forced_type = ai_tipo
             question = analysis.get("pregunta_faltante") or (
                 "Tu solicitud es muy generica. Podrias dar mas detalles?"
             )
@@ -794,7 +835,7 @@ class ArquiSysAI_TUI:
                 break
             stripped = answer.strip()
             lowered = stripped.lower()
-            if lowered in ("a mi criterio", "generar el diagrama a mi criterio", "no se"):
+            if self._a_mi_criterio(lowered):
                 ciclo_info = analysis
                 break
             if stripped:
@@ -1228,6 +1269,13 @@ class ArquiSysAI_TUI:
     def _refresh_models(self, silent: bool = False) -> dict[str, str]:
         models = self.analyst.client.refresh_free_models()
         self.available_models = dict(models or AVAILABLE_MODELS)
+        # Filter out known dead models
+        self.available_models = {
+            k: v for k, v in self.available_models.items()
+            if v not in DEAD_MODELS
+        }
+        if not self.available_models:
+            self.available_models = dict(AVAILABLE_MODELS)
         if "default" not in self.available_models:
             self.available_models["default"] = next(iter(self.available_models.values()))
 

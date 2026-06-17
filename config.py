@@ -10,17 +10,17 @@ OPENCODE_API_KEY  = os.getenv("OPENCODE_API_KEY", "")
 OPENCODE_BASE_URL = "https://opencode.ai/zen/v1"
 
 AVAILABLE_MODELS = {
-    "hy3":      "hy3-preview-free",      # ← Cambiado
-    "nemotron": "nemotron-3-super-free", # ← Cambiado
-    "minimax":  "minimax-m2.5-free",     # ← Cambiado
-    "default":  "minimax-m2.5-free",     # ← Cambiado
+    "north":    "north-mini-code-free",
+    "nemotron": "nemotron-3-ultra-free",
+    "minimax":  "minimax-m3-free",
+    "default":  "north-mini-code-free",
 }
 
 FREE_MODEL_MARKERS = ("free", "gratis")
 
 # ── App ────────────────────────────────────────────────────────────
 APP_NAME    = "ArquiSysAI"
-APP_VERSION = "2.0.0"
+APP_VERSION = "5.0.0"
 
 # ── Sesión ─────────────────────────────────────────────────────────
 MAX_HISTORY = 20
@@ -38,6 +38,7 @@ SUPPORTED_DIAGRAM_TYPES = [
 
 RECOMMENDED_FORMAT_BY_TYPE = {
     "uml-caso-uso": "plantuml",
+    "bpmn":         "mermaid",
 }
 
 # ── Exportación PNG ────────────────────────────────────────────────

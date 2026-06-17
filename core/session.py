@@ -85,7 +85,12 @@ class DiagramSession:
             "- Si el usuario pide un solo tipo de diagrama, genera SOLO ese tipo.\n"
             "- No generes paquetes ni multiples diagramas salvo que el usuario lo pida explicitamente.\n"
             "- Después del bloque de código explica brevemente los elementos clave.\n"
-            "- Si falta información crítica, haz UNA sola pregunta concreta.\n"
+            "- Si falta información crítica, haz UNA sola pregunta concreta.\n\n"
+            "GUIAS POR TIPO:\n"
+            "- BPMN: Usa sintaxis mermaid flowchart TD/ LR con elementos BPMN "
+            "(eventos (círculos), actividades (rectángulos), compuertas (rombos), "
+            "flujos de secuencia (flechas), pools y lanes (subgráficos)). "
+            "Ejemplo: graph LR; A([Inicio])-->B(Proceso); B-->{C[Decisión]};\n"
         )
         if self.forced_type:
             base += (
@@ -110,6 +115,13 @@ class DiagramSession:
             "2. Detectar errores conceptuales básicos de UML/BPMN/ER cuando apliquen.\n"
             "3. Si hay errores: CORREGIR el diagrama completo y devolverlo corregido.\n"
             "4. Si está correcto: devolver el bloque exactamente igual, sin cambios.\n\n"
+            "REGLAS ESPECIFICAS:\n"
+            "- BPMN: Verifica que los eventos usen paréntesis (()), actividades usen corchetes [], "
+            "compuertas usen llaves {}. Revisa que los flujos tengan dirección clara y que no falten "
+            "elementos obligatorios como el inicio/fin del proceso.\n"
+            "- UML Casos de Uso: Verifica que actores y casos estén conectados correctamente.\n"
+            "- UML Secuencia: Verifica que las líneas de vida y mensajes tengan sintaxis válida.\n"
+            "- ER: Verifica que entidades y relaciones estén correctamente definidas.\n\n"
             "RESPONDE SIEMPRE con el bloque de código corregido (o sin cambios si era correcto), "
             "seguido de una línea: 'VALIDACIÓN: OK' o 'VALIDACIÓN: CORREGIDO — <razón breve>'."
         )

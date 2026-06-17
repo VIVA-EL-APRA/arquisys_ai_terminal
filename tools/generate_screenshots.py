@@ -107,23 +107,27 @@ def main():
     c.rule()
     c.print(Panel(
         "[yellow]Solicitud:[/] hacer un diagrama bpmn de un restaurante\n\n"
-        "[cyan]El Analista detecto que la solicitud es muy generica.[/]",
-        title="Analisis", border_style="yellow"
+        "[cyan]Contexto:[/] No hay contexto cargado.\n"
+        "[cyan]Analisis IA:[/] Tipo BPMN detectado, pero faltan procesos y actores.",
+        title="Analisis por IA", border_style="yellow"
     ))
     c.print()
-    c.print("[bold]Preguntas para especificar mejor:[/bold]")
+    c.print("[bold]Preguntas generadas por IA (basadas en el contexto):[/bold]")
     c.print()
-    c.print("  [bold]1.[/] Que procesos del restaurante quieres modelar?")
-    c.print("     (ej: toma de pedido, preparacion, facturacion, reserva)")
-    c.print("  [bold]2.[/] Que actores intervienen?")
+    c.print("  He visto que quieres modelar un restaurante en BPMN.")
+    c.print("  Para generar un diagrama preciso, necesito saber:")
+    c.print()
+    c.print("  [bold]1.[/] Que tipo de restaurante?")
+    c.print("     (ej: fast food, fine dining, cafeteria)")
+    c.print("  [bold]2.[/] Que procesos quieres modelar?")
+    c.print("     (ej: preparacion de alimentos, gestion de pedidos, atencion al cliente)")
+    c.print("  [bold]3.[/] Que actores intervienen?")
     c.print("     (ej: Mesero, Cocinero, Cliente, Cajero)")
-    c.print("  [bold]3.[/] Que entidades maneja el sistema?")
-    c.print("     (ej: Pedido, Mesa, Factura, Menu)")
     c.print()
     c.print("  [bold]0.[/] [dim]Quieres que genere el diagrama a mi criterio?[/dim]")
     c.print()
-    c.print("[dim]Escribe el numero de tu opcion (o 0 para generar con criterio propio):[/dim]")
-    c.print(Panel(Text("F1:Ayuda  Esc:Saltar preguntas  Agente de Clarificacion v1.0", style="dim")))
+    c.print("[dim]Escribe tu respuesta o selecciona una opcion:[/dim]")
+    c.print(Panel(Text("F1:Ayuda  Esc:Saltar preguntas  Agente de Clarificacion v2.0 (IA)", style="dim")))
     save_screenshot("img_04_clarification", c)
 
     # ── Tests Output ──

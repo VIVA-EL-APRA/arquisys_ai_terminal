@@ -737,13 +737,23 @@ class ArquiSysAI_TUI:
             if self.session.forced_type in validos:
                 inferred = [self.session.forced_type]
             else:
-                inferred = infer_package_types_from_text(self._generation_text())
+                # Try AI-based detection first, fall back to keyword matching
+                try:
+                    text = self._generation_text()
+                    analysis = self.analyst.analyze(text, self.session)
+                    ai_tipo = analysis.get("tipo_diagrama", "")
+                    if ai_tipo in validos:
+                        inferred = [ai_tipo]
+                    else:
+                        inferred = infer_package_types_from_text(text)
+                except Exception:
+                    inferred = infer_package_types_from_text(self._generation_text())
         return inferred
 
     def _ask_clarification(self, question: str) -> str | None:
         from prompt_toolkit.shortcuts import input_dialog
         return input_dialog(
-            title="El Agente necesita mas informacion",
+            title="Agente de Clarificacion - Informacion Insuficiente",
             text=question,
         ).run()
 
@@ -763,6 +773,9 @@ class ArquiSysAI_TUI:
             )
             low_confidence = analysis.get("confianza") == "baja"
             if not has_question and not low_confidence:
+                analysis_tipo = analysis.get("tipo_diagrama", "")
+                if analysis_tipo and analysis_tipo != "desconocido":
+                    self.session.forced_type = analysis_tipo
                 return True
             question = analysis.get("pregunta_faltante") or (
                 "Tu solicitud es muy generica. ¿Podrias dar mas detalles?\n\n"
@@ -771,13 +784,21 @@ class ArquiSysAI_TUI:
             answer = self._ask_clarification(question)
             if answer is None:
                 return True
-            if answer.strip():
+            stripped = answer.strip().lower()
+            if stripped in ("a mi criterio", "0", "no se", "como quieras"):
+                if analysis.get("tipo_diagrama") and analysis["tipo_diagrama"] != "desconocido":
+                    self.session.forced_type = analysis["tipo_diagrama"]
+                return True
+            if stripped:
                 enriched = f"El usuario aclaro: {answer.strip()}"
                 self.session.add_code_context(enriched, "aclaracion-usuario")
                 self._log_ok(f"Aclaracion recibida: {answer.strip()}")
                 generation_text = self._generation_text()
                 continue
             break
+        # After cycles, use the detected type if available
+        if analysis.get("tipo_diagrama") and analysis["tipo_diagrama"] != "desconocido":
+            self.session.forced_type = analysis["tipo_diagrama"]
         return True
 
     def _handle_f5_generation(self):

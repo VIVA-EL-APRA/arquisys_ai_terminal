@@ -75,23 +75,55 @@ STYLE = Style.from_dict({
 })
 
 DIALOG_STYLE = Style.from_dict({
-    "dialog":                             "bg:#0d1117 #e6edf3",
-    "dialog body":                        "bg:#0d1117 #e6edf3",
+    # ── Container ─────────────────────────────────────────────────
+    "dialog":                             "bg:#010409",
+    "dialog body":                        "bg:#010409 #c9d1d9",
+    "dialog.body":                        "bg:#010409",
     "dialog shadow":                      "bg:#000000",
-    "dialog.title":                       "bg:#161b22 #00d7ff bold",
-    "dialog.frame.label":                 "#00d7ff bold",
-    "dialog.frame.border":                "#444444",
-    "button":                             "bg:#21262d #e6edf3",
-    "button.hovered":                     "bg:#58a6ff #0d1117 bold",
-    "button.focused":                     "bg:#58a6ff #0d1117 bold",
-    "label":                              "#e6edf3",
+    "dialog.background":                  "bg:#010409",
+
+    # ── Border / Title (igual que frame en TUI) ──────────────────
+    "dialog frame.border":                "#444444",
+    "dialog frame.label":                 "bg:#161b22 #00d7ff bold",
+
+    # ── Texto dentro del dialog ───────────────────────────────────
+    "dialog.label":                       "#c9d1d9",
+    "label":                              "#c9d1d9",
+
+    # ── Input / Text area (igual que input-field del TUI) ────────
+    "dialog input-field":                 "bg:#0d1117 #e6edf3",
+    "dialog input-field.text":            "#e6edf3",
     "text-area":                          "bg:#0d1117 #e6edf3",
-    "input-field":                        "bg:#0d1117 #e6edf3",
-    "input-field.text":                   "#e6edf3",
-    "checkbox":                           "bg:#21262d #e6edf3",
-    "checkbox.selected":                  "bg:#58a6ff #0d1117",
+    "dialog text-area":                   "bg:#0d1117 #e6edf3",
+    "dialog.text-area":                   "bg:#0d1117 #e6edf3",
+
+    # ── Botones (OK / Cancel) ────────────────────────────────────
+    "button":                             "bg:#21262d #e6edf3",
+    "button.arrow":                       "#e6edf3",
+    "button hover":                       "bg:#58a6ff #0d1117 bold",
+    "button.hovered":                     "bg:#58a6ff #0d1117 bold",
+    "button focused":                     "bg:#58a6ff #0d1117 bold",
+    "button.focused":                     "bg:#58a6ff #0d1117 bold",
+    "button selected":                    "bg:#58a6ff #0d1117 bold",
+    "button.selected":                    "bg:#58a6ff #0d1117 bold",
+    "button key":                         "bg:#21262d #58a6ff bold",
+    "button.key":                         "bg:#21262d #58a6ff bold",
+
+    # ── Radio buttons ────────────────────────────────────────────
     "radio":                              "bg:#21262d #e6edf3",
-    "radio.selected":                     "bg:#58a6ff #0d1117",
+    "radio.selected":                     "bg:#58a6ff #0d1117 bold",
+    "radio.selected":                     "bg:#58a6ff #0d1117 bold",
+
+    # ── Checkboxes ───────────────────────────────────────────────
+    "checkbox":                           "bg:#21262d #e6edf3",
+    "checkbox.selected":                  "bg:#58a6ff #0d1117 bold",
+    "checkbox.checked":                   "bg:#58a6ff #0d1117 bold",
+
+    # ── Scrollbar dentro del dialog ──────────────────────────────
+    "dialog scrollbar":                   "bg:#21262d",
+    "dialog.scrollbar":                   "bg:#21262d",
+    "dialog scrollbar.button":            "bg:#58a6ff",
+    "dialog.scrollbar.background":        "bg:#21262d",
 })
 
 # ══════════════════════════════════════════════════════════════════
@@ -276,6 +308,10 @@ class ArquiSysAI_TUI:
         self.current_model = self.available_models["default"]
         self.cmd_completer = build_completer(self.available_models.keys())
         self.processing    = False
+
+        # ── Inline prompt system (sin dialogs flotantes) ──────────
+        self._inline_event: threading.Event | None = None
+        self._inline_result: list[str] = []
 
         self._refresh_models(silent=True)
 
@@ -606,8 +642,26 @@ class ArquiSysAI_TUI:
     def _on_accept(self, buff):
         """Handler cuando el usuario presiona Enter en el TextArea."""
         text = buff.text.strip()
-        if text and not self.processing:
-            buff.set_document(Document("", 0), bypass_readonly=True)
+        if not text:
+            return
+
+        buff.set_document(Document("", 0), bypass_readonly=True)
+
+        # ── Inline prompt: redirect to the waiting handler ─────────
+        if self._inline_event is not None:
+            logged_text = text
+            lower = text.lower()
+            if lower.startswith("/api set") or lower.startswith("/api key") or lower.startswith("/api token"):
+                logged_text = " ".join(text.split()[:2]) + " ********"
+            elif lower.startswith("/api ") and lower not in {"/api", "/api status", "/api ver", "/api show"}:
+                logged_text = text.split()[0] + " ********"
+            self._log_user(f"[respuesta] {logged_text}" if not text.startswith("/") else logged_text)
+            self._inline_result.append(text)
+            self._inline_event.set()
+            return
+
+        # ── Normal flow ────────────────────────────────────────────
+        if not self.processing:
             logged_text = text
             lower = text.lower()
             if lower.startswith("/api set") or lower.startswith("/api key") or lower.startswith("/api token"):
@@ -637,6 +691,26 @@ class ArquiSysAI_TUI:
     # ══════════════════════════════════════════════════════════════
     #  Comandos
     # ══════════════════════════════════════════════════════════════
+
+    def _inline_input(self) -> str | None:
+        """Muestra un prompt inline y espera la respuesta del usuario
+        en el campo de entrada principal. No usa dialogs flotantes."""
+        import threading
+
+        self._inline_event = threading.Event()
+        self._inline_result.clear()
+
+        app = get_app()
+        # Keep the input area focused for the user to type
+        app.layout.focus(self.input_area)
+
+        # Poll for the event while keeping UI responsive
+        while not self._inline_event.is_set():
+            self._inline_event.wait(0.05)
+            app.invalidate()
+
+        self._inline_event = None
+        return self._inline_result[0] if self._inline_result else None
 
     def _handle_command(self, text: str):
         parts = text.strip().lstrip("/").split()
@@ -704,21 +778,22 @@ class ArquiSysAI_TUI:
         self._log_ok(f"Carpeta de exportacion: {self.session.output_dir}")
         return True
 
+    def _get_prompt_token(self) -> str:
+        """Return an ANSI-styled prompt token for the user reply marker."""
+        return "[INPUT] "
+
     def _prompt_output_dir(self) -> bool:
         current = self.session.output_dir
-        value = input_dialog(
-            title="Carpeta de exportacion",
-            text=(
-                "Ingresa la carpeta donde se guardaran los diagramas (.mmd/.puml y .png).\n"
-                f"Actual: {current}\n"
-                "Deja vacio para usar la actual."
-            ),
-            style=DIALOG_STYLE,
-        ).run()
-        if value is None:
+        self._log_system(
+            "Carpeta de exportacion:\n"
+            f"  Actual: {current}\n"
+            "  Ingresa la ruta (ENTER para usar actual, 'cancel' para cancelar):"
+        )
+        value = self._inline_input()
+        if value is None or value.strip().lower() == "cancel":
             self._log_warn("Seleccion de carpeta cancelada.")
             return False
-        return self._set_output_dir(value or current, confirmed=True)
+        return self._set_output_dir(value.strip() or current, confirmed=True)
 
     def _ensure_output_dir_selected(self) -> bool:
         if self.session.output_dir_confirmed:
@@ -727,70 +802,92 @@ class ArquiSysAI_TUI:
 
     def _select_f5_types(self) -> list[str] | None:
         validos = dict(PACKAGE_TYPES)
+        opts = []
         if self.session.forced_type in validos:
             forced = self.session.forced_type
-            values = [
+            opts.extend([
                 ("__auto__", f"Detectar automaticamente (actual: {forced})"),
                 (forced, validos[forced]),
                 ("__all__", "Paquete completo (4 diagramas)"),
-            ]
+            ])
         else:
-            values = [("__auto__", "Detectar automaticamente desde solicitud/contexto")]
-            values += [(tipo, label) for tipo, label in PACKAGE_TYPES]
-            values += [("__all__", "Paquete completo (4 diagramas)")]
+            opts.append(("__auto__", "Detectar automaticamente desde solicitud/contexto"))
+            opts.extend(PACKAGE_TYPES)
+            opts.append(("__all__", "Paquete completo (4 diagramas)"))
 
-        selected = checkboxlist_dialog(
-            title="Generar diagramas",
-            text=(
-                "Selecciona uno o varios diagramas. "
-                "Si eliges deteccion automatica se usara la solicitud pendiente y el ultimo contexto."
-            ),
-            values=values,
-            style=DIALOG_STYLE,
-        ).run()
+        self._log_system("Selecciona tipo(s) de diagrama (numeros separados por coma):")
+        for i, (tipo, label) in enumerate(opts, 1):
+            txt = label
+            if tipo in validos:
+                txt = f"[{tipo}] {label}"
+            elif tipo == "__all__":
+                txt = label
+            else:
+                txt = label
+            self._log(f"  [{i}] {txt}")
+        self._log("  [ENTER] = auto-detect | 'all' = todos | numeros separados por coma (ej: 1,3)")
 
-        if selected is None:
+        answer = self._inline_input()
+        if answer is None:
             return None
+        answer = answer.strip()
+
+        if not answer or answer == "__auto__":
+            selected = ["__auto__"]
+        elif answer.lower() in ("all", "todo", "todos", "full"):
+            selected = ["__all__"]
+        else:
+            parts = [p.strip() for p in answer.split(",")]
+            selected = []
+            for p in parts:
+                if p.isdigit():
+                    idx = int(p) - 1
+                    if 0 <= idx < len(opts):
+                        selected.append(opts[idx][0])
+                elif p in validos:
+                    selected.append(p)
+                else:
+                    selected.append(p)
+
         if "__all__" in selected:
             return [tipo for tipo, _ in PACKAGE_TYPES]
 
-        explicit = [tipo for tipo in selected if tipo in validos]
+        explicit = [t for t in selected if t in validos]
         if explicit:
             return explicit
 
-        inferred = []
         if "__auto__" in selected or not selected:
             if self.session.forced_type in validos:
-                inferred = [self.session.forced_type]
-            else:
-                # Try AI-based detection first, fall back to keyword matching
-                try:
-                    text = self._generation_text()
-                    analysis = self.analyst.analyze(text, self.session)
-                    ai_tipo = analysis.get("tipo_diagrama", "")
-                    if ai_tipo in validos:
-                        inferred = [ai_tipo]
-                    else:
-                        inferred = infer_package_types_from_text(text)
-                except Exception:
-                    inferred = infer_package_types_from_text(self._generation_text())
-        return inferred
+                return [self.session.forced_type]
+            try:
+                text = self._generation_text()
+                analysis = self.analyst.analyze(text, self.session)
+                ai_tipo = analysis.get("tipo_diagrama", "")
+                if ai_tipo in validos:
+                    return [ai_tipo]
+                inferred = infer_package_types_from_text(text)
+            except Exception:
+                inferred = infer_package_types_from_text(self._generation_text())
+            return inferred
+        return []
 
     def _ask_clarification(self, question: str, options: list[str] | None = None) -> str | None:
-        from prompt_toolkit.shortcuts import input_dialog, radiolist_dialog
+        self._log_system(question)
         if options:
-            selected = radiolist_dialog(
-                title="Agente de Clarificacion - Informacion Insuficiente",
-                text=question,
-                values=[(opt, opt) for opt in options],
-                style=DIALOG_STYLE,
-            ).run()
-            return selected
-        return input_dialog(
-            title="Agente de Clarificacion - Informacion Insuficiente",
-            text=question,
-            style=DIALOG_STYLE,
-        ).run()
+            self._log("  Opciones:")
+            for i, opt in enumerate(options, 1):
+                marker = ">" if i == len(options) else " "
+                default = "(por defecto)" if i == len(options) else ""
+                self._log(f"    {marker} [{i}] {opt} {default}")
+            self._log("  Escribe el numero de tu eleccion (o texto libre):")
+            answer = self._inline_input()
+            if answer and answer.strip().isdigit():
+                idx = int(answer.strip()) - 1
+                if 0 <= idx < len(options):
+                    return options[idx]
+            return answer
+        self._log("  Escribe tu respuesta:")
+        return self._inline_input()
 
     def _a_mi_criterio(self, lowered: str) -> bool:
         return lowered in (
@@ -856,6 +953,10 @@ class ArquiSysAI_TUI:
         if not self._ensure_output_dir_selected():
             return
 
+        # Run the full gen flow in a background thread so inline input can block
+        self._start_thread(self._f5_flow)
+
+    def _f5_flow(self):
         self._run_clarification_cycle()
 
         forced = self.session.forced_type
@@ -878,7 +979,7 @@ class ArquiSysAI_TUI:
             except Exception:
                 tipos = infer_package_types_from_text(self._generation_text())
 
-        # If auto-detection failed, show the dialog for manual selection
+        # If auto-detection failed, show the inline prompt for manual selection
         if not tipos:
             tipos = self._select_f5_types()
             if tipos is None:
@@ -891,7 +992,7 @@ class ArquiSysAI_TUI:
                 return
 
         self._log_system(f"F5: generando {', '.join(tipos)} en {self.session.output_dir}")
-        self._start_thread(lambda: self._run_custom_package(tipos))
+        self._run_custom_package(tipos)
 
     def _mask_api_key(self, api_key: str) -> str:
         if not api_key:

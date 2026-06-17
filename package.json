@@ -1,6 +1,6 @@
 {
   "name": "arquisys-ai",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "ArquiSysAI - IA Agéntica para generación de diagramas técnicos",
   "main": "main.py",
   "bin": {

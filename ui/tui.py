@@ -847,19 +847,14 @@ class ArquiSysAI_TUI:
 
     def _ask_clarification(self, question: str, options: list[str] | None = None) -> str | None:
         if options:
-            lines = [question, "", "  Opciones:"]
-            for i, opt in enumerate(options, 1):
-                marker = ">" if i == len(options) else " "
-                suffix = " (por defecto)" if i == len(options) else ""
-                lines.append(f"    {marker} [{i}] {opt}{suffix}")
-            lines.append("")
-            lines.append("Escribe el número de tu elección (o texto libre):")
-            answer = self._inline_input("\n".join(lines))
-            if answer and answer.strip().isdigit():
-                idx = int(answer.strip()) - 1
-                if 0 <= idx < len(options):
-                    return options[idx]
-            return answer
+            from prompt_toolkit.shortcuts import radiolist_dialog
+            selected = radiolist_dialog(
+                title="ArquiSysAI — Informacion Insuficiente",
+                text=question,
+                values=[(opt, opt) for opt in options],
+                style=DIALOG_STYLE,
+            ).run()
+            return selected
         return self._inline_input(question)
 
     def _a_mi_criterio(self, lowered: str) -> bool:

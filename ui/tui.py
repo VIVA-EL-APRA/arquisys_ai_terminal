@@ -740,9 +740,51 @@ class ArquiSysAI_TUI:
                 inferred = infer_package_types_from_text(self._generation_text())
         return inferred
 
+    def _ask_clarification(self, question: str) -> str | None:
+        from prompt_toolkit.shortcuts import input_dialog
+        return input_dialog(
+            title="El Agente necesita mas informacion",
+            text=question,
+        ).run()
+
+    def _run_clarification_cycle(self) -> bool:
+        generation_text = self._generation_text()
+        if not generation_text:
+            return True
+        for cycle in range(2):
+            try:
+                analysis = self.analyst.analyze(generation_text, self.session)
+            except Exception as e:
+                self._log_warn(f"Analisis no disponible: {e}")
+                return True
+            has_question = (
+                not analysis.get("tiene_suficiente_info", True)
+                and analysis.get("pregunta_faltante")
+            )
+            low_confidence = analysis.get("confianza") == "baja"
+            if not has_question and not low_confidence:
+                return True
+            question = analysis.get("pregunta_faltante") or (
+                "Tu solicitud es muy generica. ¿Podrias dar mas detalles?\n\n"
+                "O escribe 'a mi criterio' para que genere el diagrama con su criterio."
+            )
+            answer = self._ask_clarification(question)
+            if answer is None:
+                return True
+            if answer.strip():
+                enriched = f"El usuario aclaro: {answer.strip()}"
+                self.session.add_code_context(enriched, "aclaracion-usuario")
+                self._log_ok(f"Aclaracion recibida: {answer.strip()}")
+                generation_text = self._generation_text()
+                continue
+            break
+        return True
+
     def _handle_f5_generation(self):
         if not self._ensure_output_dir_selected():
             return
+
+        self._run_clarification_cycle()
 
         tipos = self._select_f5_types()
         if tipos is None:
@@ -993,6 +1035,7 @@ class ArquiSysAI_TUI:
             except Exception:
                 self._log_warn("Usa F5 para seleccionar diagramas o /multidiagrama all para paquete completo.")
             return
+        self._run_clarification_cycle()
         self._start_thread(lambda: self._cmd_multidiagrama(args))
 
     def _cmd_multidiagrama(self, args=None):

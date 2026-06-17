@@ -18,11 +18,22 @@ class AnalystAgent:
         "Eres el Agente Analista de ArquiSysAI. "
         "Tu única tarea es analizar solicitudes de diagramas y responder SOLO con JSON válido, "
         "sin markdown, sin texto extra, sin comillas adicionales.\n\n"
+        "REGLAS:\n"
+        "- Si la solicitud es muy GENERICA o VAGA (ej: 'diagrama bpmn de un restaurante', "
+        "'haz un diagrama de un sistema de ventas'), NO asumas detalles que el usuario no dio.\n"
+        "- En lugar de inventar procesos, entidades o actores, devuelve "
+        'tiene_suficiente_info=false y una pregunta_faltante clara y CONCRETA '
+        "que ayude al usuario a especificar.\n"
+        "- La pregunta debe ser UTIL: pide detalles que realmente importan "
+        "(procesos, actores, entidades, relaciones).\n"
+        "- Si hay MULTIPLES aspectos faltantes, ofrece opciones numeradas.\n"
+        "- Siempre incluye como ULTIMA opcion: 'O quieres que genere el diagrama a mi criterio?'\n"
+        "- Si el usuario ya dio detalles suficientes, devuelve tiene_suficiente_info=true.\n\n"
         "Esquema de respuesta:\n"
         '{\n'
         '  "tipo_diagrama": "<uml-clase|uml-secuencia|uml-caso-uso|uml-flujo|bpmn|er|c4-contexto|c4-contenedor|arquitectura|desconocido>",\n'
         '  "tiene_suficiente_info": <true|false>,\n'
-        '  "pregunta_faltante": "<pregunta o null>",\n'
+        '  "pregunta_faltante": "<pregunta detallada con opciones o null>",\n'
         '  "formato_sugerido": "<mermaid|plantuml>",\n'
         '  "confianza": "<alta|media|baja>",\n'
         '  "solicitud_enriquecida": "<descripción expandida de lo que hay que generar>"\n'
@@ -49,7 +60,6 @@ class AnalystAgent:
                 temperature=0.1,
                 max_tokens=400,
             )
-            # Limpiar posibles markdown fences
             text = re.sub(r"```json|```", "", text).strip()
             return json.loads(text)
         except Exception:

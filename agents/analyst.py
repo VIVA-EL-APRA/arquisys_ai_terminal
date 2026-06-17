@@ -39,14 +39,25 @@ class AnalystAgent:
         "modelar?: 1) Toma de pedidos, 2) Preparacion de platos, 3) Facturacion, 4) Gestion "
         "de inventario, 5) Reservas?'. "
         "Usa el vocabulario y dominio del contexto para hacer las preguntas relevantes.\n\n"
-        "4. Siempre incluye como ULTIMA opcion: 'O quieres que genere el diagrama a mi criterio?'\n"
+        "4. Siempre incluye como ULTIMA opcion: 'O quieres que genere el diagrama a mi criterio?' "
+        "(en la lista de opciones_clarificacion).\n"
         "5. Si la informacion es suficiente, devuelve tiene_suficiente_info=true y "
         "pregunta_faltante=null.\n\n"
+        "6. OPCIONES INTERACTIVAS: En lugar de solo texto en 'pregunta_faltante', debes generar "
+        "una lista de opciones_clarificacion que son POSIBLES RESPUESTAS que el usuario puede "
+        "elegir interactivamente. El sistema mostrara estas opciones como una lista seleccionable.\n"
+        "   - Cada opcion debe ser una frase completa, clara y util.\n"
+        "   - Las opciones deben ser sugerencias INTELIGENTES basadas en el contexto y la solicitud.\n"
+        "   - Ejemplo para restaurante: ['Modelar solo el proceso de toma de pedidos', "
+        "'Modelar la preparacion de alimentos y facturacion', 'Modelar todo el flujo del restaurante']\n"
+        "   - Siempre incluir como ultima opcion: 'Generar el diagrama a mi criterio'\n"
+        "   - Minimo 2 opciones, maximo 6.\n\n"
         "Esquema de respuesta:\n"
         '{\n'
         '  "tipo_diagrama": "<uml-clase|uml-secuencia|uml-caso-uso|uml-flujo|bpmn|er|c4-contexto|c4-contenedor|arquitectura|desconocido>",\n'
         '  "tiene_suficiente_info": <true|false>,\n'
         '  "pregunta_faltante": "<pregunta detallada generada por IA o null>",\n'
+        '  "opciones_clarificacion": ["<opcion 1>", "<opcion 2>", ...] o null,\n'
         '  "formato_sugerido": "<mermaid|plantuml>",\n'
         '  "confianza": "<alta|media|baja>",\n'
         '  "solicitud_enriquecida": "<descripcion expandida de lo que hay que generar>"\n'

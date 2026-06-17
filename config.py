@@ -12,7 +12,7 @@ OPENCODE_BASE_URL = "https://opencode.ai/zen/v1"
 AVAILABLE_MODELS = {
     "north":    "north-mini-code-free",
     "nemotron": "nemotron-3-ultra-free",
-    "minimax":  "minimax-m3-free",
+    "deepseek": "deepseek-v4-flash-free",
     "default":  "north-mini-code-free",
 }
 
@@ -20,7 +20,7 @@ FREE_MODEL_MARKERS = ("free", "gratis")
 
 # ── App ────────────────────────────────────────────────────────────
 APP_NAME    = "ArquiSysAI"
-APP_VERSION = "5.0.0"
+APP_VERSION = "5.1.1"
 
 # ── Sesión ─────────────────────────────────────────────────────────
 MAX_HISTORY = 20

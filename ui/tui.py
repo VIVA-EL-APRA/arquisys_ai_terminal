@@ -105,6 +105,7 @@ TYPE_ALIASES = {
     "secuencias": "uml-secuencia",
     "flujo": "uml-flujo",
     "actividad": "uml-flujo",
+    "bpmn": "bpmn",
     "proceso": "bpmn",
     "procesos": "bpmn",
     "entidad relacion": "er",
@@ -750,8 +751,15 @@ class ArquiSysAI_TUI:
                     inferred = infer_package_types_from_text(self._generation_text())
         return inferred
 
-    def _ask_clarification(self, question: str) -> str | None:
-        from prompt_toolkit.shortcuts import input_dialog
+    def _ask_clarification(self, question: str, options: list[str] | None = None) -> str | None:
+        from prompt_toolkit.shortcuts import input_dialog, radiolist_dialog
+        if options:
+            selected = radiolist_dialog(
+                title="Agente de Clarificacion - Informacion Insuficiente",
+                text=question,
+                values=[(opt, opt) for opt in options],
+            ).run()
+            return selected
         return input_dialog(
             title="Agente de Clarificacion - Informacion Insuficiente",
             text=question,
@@ -761,6 +769,7 @@ class ArquiSysAI_TUI:
         generation_text = self._generation_text()
         if not generation_text:
             return True
+        ciclo_info = None
         for cycle in range(2):
             try:
                 analysis = self.analyst.analyze(generation_text, self.session)
@@ -773,32 +782,33 @@ class ArquiSysAI_TUI:
             )
             low_confidence = analysis.get("confianza") == "baja"
             if not has_question and not low_confidence:
-                analysis_tipo = analysis.get("tipo_diagrama", "")
-                if analysis_tipo and analysis_tipo != "desconocido":
-                    self.session.forced_type = analysis_tipo
-                return True
+                ciclo_info = analysis
+                break
             question = analysis.get("pregunta_faltante") or (
-                "Tu solicitud es muy generica. ¿Podrias dar mas detalles?\n\n"
-                "O escribe 'a mi criterio' para que genere el diagrama con su criterio."
+                "Tu solicitud es muy generica. Podrias dar mas detalles?"
             )
-            answer = self._ask_clarification(question)
+            ops = analysis.get("opciones_clarificacion") or None
+            answer = self._ask_clarification(question, ops)
             if answer is None:
-                return True
-            stripped = answer.strip().lower()
-            if stripped in ("a mi criterio", "0", "no se", "como quieras"):
-                if analysis.get("tipo_diagrama") and analysis["tipo_diagrama"] != "desconocido":
-                    self.session.forced_type = analysis["tipo_diagrama"]
-                return True
+                ciclo_info = analysis
+                break
+            stripped = answer.strip()
+            lowered = stripped.lower()
+            if lowered in ("a mi criterio", "generar el diagrama a mi criterio", "no se"):
+                ciclo_info = analysis
+                break
             if stripped:
-                enriched = f"El usuario aclaro: {answer.strip()}"
+                enriched = f"El usuario aclaro: {stripped}"
                 self.session.add_code_context(enriched, "aclaracion-usuario")
-                self._log_ok(f"Aclaracion recibida: {answer.strip()}")
+                self._log_ok(f"Aclaracion recibida: {stripped}")
                 generation_text = self._generation_text()
                 continue
             break
-        # After cycles, use the detected type if available
-        if analysis.get("tipo_diagrama") and analysis["tipo_diagrama"] != "desconocido":
-            self.session.forced_type = analysis["tipo_diagrama"]
+        if ciclo_info:
+            analysis = ciclo_info
+        tipo = analysis.get("tipo_diagrama", "") if isinstance(analysis, dict) else ""
+        if tipo and tipo != "desconocido":
+            self.session.forced_type = tipo
         return True
 
     def _handle_f5_generation(self):
@@ -807,15 +817,37 @@ class ArquiSysAI_TUI:
 
         self._run_clarification_cycle()
 
-        tipos = self._select_f5_types()
-        if tipos is None:
-            self._log_warn("Generacion cancelada.")
-            return
+        forced = self.session.forced_type
+        validos = dict(PACKAGE_TYPES)
+
+        # If the clarification cycle (or a prior /tipo) already locked a type, use it directly
+        if forced in validos:
+            tipos = [forced]
+        else:
+            # Try silent auto-detection from context without dialog
+            try:
+                text = self._generation_text()
+                analysis = self.analyst.analyze(text, self.session)
+                ai_tipo = analysis.get("tipo_diagrama", "")
+                if ai_tipo in validos:
+                    tipos = [ai_tipo]
+                    self.session.forced_type = ai_tipo
+                else:
+                    tipos = infer_package_types_from_text(text)
+            except Exception:
+                tipos = infer_package_types_from_text(self._generation_text())
+
+        # If auto-detection failed, show the dialog for manual selection
         if not tipos:
-            self._log_warn(
-                "No se detecto un tipo de diagrama. Presiona F5 y selecciona BPMN, casos de uso, secuencia o ER."
-            )
-            return
+            tipos = self._select_f5_types()
+            if tipos is None:
+                self._log_warn("Generacion cancelada.")
+                return
+            if not tipos:
+                self._log_warn(
+                    "No se detecto un tipo de diagrama. Presiona F5 y selecciona BPMN, casos de uso, secuencia o ER."
+                )
+                return
 
         self._log_system(f"F5: generando {', '.join(tipos)} en {self.session.output_dir}")
         self._start_thread(lambda: self._run_custom_package(tipos))

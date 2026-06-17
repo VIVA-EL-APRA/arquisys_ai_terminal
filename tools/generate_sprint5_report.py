@@ -82,7 +82,7 @@ def main():
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("ArquiSysAI — Agente de Clarificación y Soporte BPMN")
+    run = p.add_run("ArquiSysAI — Agente de Clarificación y Soporte BPMN (v5.2.x)")
     run.font.size = Pt(16)
     run.font.color.rgb = RGBColor(0x2F, 0x54, 0x96)
 
@@ -118,11 +118,15 @@ def main():
     doc.add_heading("1. Resumen Ejecutivo", level=1)
     doc.add_paragraph(
         "Sprint 5 completó exitosamente 4 historias de usuario: la creación del 'Agente de Clarificación' (HU05.6) "
-        "que detecta solicitudes vagas y formula preguntas clarificadoras al usuario, la mejora de soporte BPMN (HU06) "
+        "que detecta solicitudes vagas y formula preguntas clarificadoras al usuario mediante opciones interactivas "
+        "radiolist generadas dinámicamente por IA, la mejora de soporte BPMN (HU06) "
         "con reglas de validación específicas y guía de sintaxis, las pruebas de usuario con escenarios académicos (HU07) "
         "que validan el pipeline completo con 10 tests unitarios y 5 escenarios de integración, y la documentación "
-        "técnica CRISP-ML(Q) (HU08). Se logró una tasa de éxito del 75% en generación de diagramas (3 de 4 tipos generaron "
-        "PNG exitosamente), demostrando la robustez del pipeline multi-agente con LangGraph."
+        "técnica CRISP-ML(Q) (HU08). En las iteraciones finales (v5.2.x) se incorporaron: detección de tipo de diagrama "
+        "con palabras completas (sin falsos positivos de subcadenas), diálogos con estilo integrado al TUI principal "
+        "usando 33 targets de estilo visual, filtrado automático de modelos caídos (minimax-m3-free, etc.), "
+        "radiolist interactivo para clarificación, y flujo F5 completamente sincrónico y estable. "
+        "La versión publicada final es v5.2.2 en npm y GitHub."
     )
 
     # ── 2. Datos del Sprint ──
@@ -163,7 +167,11 @@ def main():
     add_image_section(doc, "documentos/sprint5_report/img_01_main.png", "Pantalla principal del TUI")
 
     doc.add_heading("4.2 Selección de Tipo de Diagrama (F5)", level=2)
-    doc.add_paragraph("Diálogo interactivo de selección de tipo de diagrama con checkbox list.")
+    doc.add_paragraph(
+        "Selección de tipo de diagrama mediante prompt inline con opciones numeradas. "
+        "El sistema también ofrece detección automática desde el contexto del usuario, "
+        "usando palabras completas (word boundaries) para evitar falsos positivos."
+    )
     add_image_section(doc, "documentos/sprint5_report/img_02_f5_dialog.png", "Selector de tipo de diagrama (F5)")
 
     doc.add_heading("4.3 Selección de Modelo (F3)", level=2)
@@ -173,13 +181,16 @@ def main():
     doc.add_heading("4.4 Agente de Clarificación", level=2)
     doc.add_paragraph(
         "El Agente de Clarificación (HU05.6) analiza la solicitud del usuario. Si detecta que es demasiado genérica "
-        "(por ejemplo, 'hacer un diagrama BPMN de un restaurante'), formula preguntas específicas sobre "
-        "procesos involucrados, entidades y actores, ofreciendo siempre la opción '¿Quieres que genere "
-        "el diagrama a mi criterio?' como última alternativa. Las respuestas se almacenan como entradas "
-        "de contexto (aclaracion-usuario) y se re-ejecuta el análisis."
+        "(por ejemplo, 'hacer un diagrama BPMN de un restaurante'), la IA del Analista genera "
+        "preguntas específicas contextuales con opciones interactivas (opciones_clarificacion en JSON) "
+        "que se presentan al usuario como un radiolist dialog estilizado con los colores del TUI. "
+        "El usuario puede elegir una opción o escribir 'a mi criterio' para delegar al sistema. "
+        "Las respuestas se almacenan como entradas de contexto (aclaracion-usuario) y se re-ejecuta el análisis "
+        "(máx. 2 ciclos). En v5.2.x se añadió detección de variantes como 'hazlo a tu criterio', "
+        "'hazlo como quieras', etc. y se forzó el tipo de diagrama detectado durante la clarificación."
     )
     add_image_section(doc, "documentos/sprint5_report/img_04_clarification.png",
-                      "Diálogo interactivo de clarificación")
+                      "Diálogo interactivo de clarificación con radiolist")
 
     doc.add_heading("4.5 Resultados de Pruebas", level=2)
     doc.add_paragraph("Resultados de las pruebas unitarias (10/10) y escenarios académicos (EC01-EC05).")
@@ -211,19 +222,24 @@ def main():
                       "ER — Sistema Universitario (PlantUML)")
 
     # ── 5. Arquitectura del Sprint 5 ──
-    doc.add_heading("5. Arquitectura del Sprint 5", level=1)
+    doc.add_heading("5. Arquitectura del Sprint 5 (v5.2.x)", level=1)
     doc.add_paragraph(
-        "agents/analyst.py: Sistema de detección de vaguedad con reglas RE GLAS. "
-        "Genera preguntas clarificadoras con opciones numeradas y siempre incluye 'generar a mi criterio'."
+        "agents/analyst.py: Sistema de detección de vaguedad que usa IA para analizar el contexto "
+        "y la solicitud. Genera preguntas clarificadoras contextuales con opciones interactivas "
+        "(opciones_clarificacion en JSON) y siempre incluye 'generar a mi criterio'. Incluye parseo "
+        "robusto de JSON mediante detección de boundaries { }."
     )
     doc.add_paragraph(
         "agents/validator.py: Prompt mejorado con reglas específicas para BPMN (eventos con (()), "
         "actividades con [], compuertas con {}), UML Casos de Uso, UML Secuencia y ER."
     )
     doc.add_paragraph(
-        "ui/tui.py: _run_clarification_cycle() integrado en _handle_f5_generation() y "
-        "_cmd_multidiagrama_command(). Usa input_dialog de prompt_toolkit para el diálogo interactivo. "
-        "Almacena respuestas como contexto con fuente 'aclaracion-usuario'."
+        "ui/tui.py: _run_clarification_cycle() integrado en _handle_f5_generation(). "
+        "Usa radiolist_dialog con DIALOG_STYLE (33 targets de estilo visual) para el diálogo "
+        "interactivo de clarificación. Almacena respuestas como contexto con fuente 'aclaracion-usuario'. "
+        "Sistema de detección de tipo con palabras completas (word boundaries) evitando falsos positivos "
+        "como 'er' dentro de 'restaurante'. F5 corre sincrónicamente en el main loop con nested event "
+        "loop para los diálogos. Filtrado automático de modelos caídos (minimax-m3-free, etc.)."
     )
     doc.add_paragraph(
         "core/session.py: build_architect_prompt() actualizado con guía específica de sintaxis BPMN "
@@ -231,7 +247,9 @@ def main():
     )
     doc.add_paragraph(
         "config.py: Actualizado con modelos gratuitos funcionales (north-mini-code-free, "
-        "nemotron-3-ultra-free). RECOMMENDED_FORMAT_BY_TYPE incluye bpmn=mermaid."
+        "nemotron-3-ultra-free, deepseek-v4-flash-free). "
+        "RECOMMENDED_FORMAT_BY_TYPE incluye bpmn=mermaid. DEAD_MODELS filtrados en runtime. "
+        "APP_VERSION = 5.2.2."
     )
     doc.add_paragraph(
         "tests/test_unit.py: 10 pruebas unitarias que validan gestión de contexto, tipos soportados, "
@@ -247,14 +265,21 @@ def main():
     )
 
     # ── 6. Correcciones y Fixes Aplicados ──
-    doc.add_heading("6. Correcciones y Fixes Aplicados", level=1)
+    doc.add_heading("6. Correcciones y Fixes Aplicados (v5.2.x)", level=1)
     fixes = [
-        "Modelos desactualizados: actualizados AVAILABLE_MODELS en config.py a modelos gratuitos funcionales (north-mini-code-free, nemotron-3-ultra-free)",
+        "Detección con palabras completas (word boundaries): 'er' ya no matchea dentro de 'restaurante'; 'bpmn' se detecta correctamente en TYPE_ALIASES",
+        "Diálogos estilizados con DIALOG_STYLE (33 targets): fondo #010409, bordes #444444, títulos cyan #00d7ff, inputs #0d1117, botones estilo statusbar",
+        "Filtrado automático de modelos muertos (minimax-m3-free, qwen3.6-plus-free, minimax-m2.5-free) del refresh de API",
+        "Clarificación con radiolist interactivo en lugar de input_dialog de texto libre; variantes de 'a mi criterio' ampliadas ('hazlo a tu criterio', 'hazlo como quieras', etc.)",
+        "F5 sincrónico (sin hilo separado) para evitar crashes; nested event loop con get_app().run() para los diálogos",
+        "Parseo robusto de JSON en analyst.py mediante detección de boundaries { } en vez de solo strip de marcadores",
+        "Modelos actualizados: eliminado minimax-m3-free (muerto) y añadido deepseek-v4-flash-free",
+        "APP_VERSION sincronizado entre config.py y package.json; publicado v5.2.2 en npm",
         "Prompt del Validador mejorado con reglas específicas por tipo de diagrama (BPMN, UML, ER)",
         "BPMN ahora usa mermaid como formato recomendado con guía de sintaxis en el prompt del Arquitecto",
-        "Ciclo de clarificación integrado en generación simple (F5) y multi-diagrama",
-        "Re-análisis del Agente Analista después de recibir respuestas del usuario (máx. 2 ciclos)",
+        "Ciclo de clarificación integrado en generación simple (F5); re-análisis después de respuestas (máx. 2 ciclos)",
         "Fallback en analista: si falla la llamada LLM, tiene_suficiente_info = True para continuar",
+        "Contexto cargado vía /ctx se pasa correctamente como solicitud del usuario al analista para detección de tipo",
     ]
     for fix in fixes:
         doc.add_paragraph(fix, style="List Bullet")
@@ -267,9 +292,12 @@ def main():
         ("Iteraciones promedio del Validador", "2.0 (mín 1, máx 3)"),
         ("Tests unitarios", "10 de 10 exitosos"),
         ("Escenarios de prueba académicos", "5 definidos"),
-        ("Modelos funcionales detectados", "4 (north-mini-code-free, nemotron-3-ultra-free, deepseek-v4-flash-free, mimo-v2.5-free)"),
+        ("Modelos funcionales detectados", "3+ (north-mini-code-free, nemotron-3-ultra-free, deepseek-v4-flash-free, más vía refresh API)"),
         ("Tipos de diagrama soportados", "9"),
         ("Formato de exportación", "Mermaid + PlantUML + PNG vía Kroki/mermaid.ink/PlantUML"),
+        ("Versión npm publicada", "v5.2.2"),
+        ("Targets de estilo en diálogos", "33 reglas de estilo visual"),
+        ("Variantes de 'a mi criterio' soportadas", "9 expresiones"),
     ]
     add_table_with_header(doc, ["Métrica", "Valor"], metricas, col_widths=[7, 10])
 
@@ -300,8 +328,10 @@ def main():
     doc.add_heading("10. Próximos Pasos", level=1)
     doc.add_paragraph("Sprint 5 representa la entrega final del proyecto ArquiSysAI. "
                       "Se completaron todas las historias planificadas. Pendiente:")
-    doc.add_paragraph("Publicar versión 5.0.0 en npm y GitHub con el tag 'sprint-5'.")
+    doc.add_paragraph("Versión publicada v5.2.2 en npm y GitHub con tag 'sprint-5'.")
     doc.add_paragraph("Demo final del sistema completo.")
+    doc.add_paragraph("Posibles mejoras futuras: integración de más motores de diagrama (Graphviz, D2), "
+                      "exportación directa a PDF, y soporte para edición visual post-generación.")
 
     # ── Guardar ──
     output_path = BASE / "documentos" / "Informe_Sprint_5_ArquiSysAI.docx"

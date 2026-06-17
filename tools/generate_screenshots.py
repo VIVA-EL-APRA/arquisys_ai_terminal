@@ -34,52 +34,49 @@ def main():
 
     # ── Main screen ──
     c = Console(record=True, width=100, height=35, force_terminal=True)
-    c.print("[bold cyan]ArquiSysAI v2.0.0[/bold cyan] -- IA Agentica para Diagramas")
+    c.print("[bold cyan]ArquiSysAI v5.2.2[/bold cyan] -- IA Agentica para Diagramas")
+    c.rule()
+    c.print("[INFO] ArquiSysAI v5.2.2 iniciado  |  modelo: north-mini-code-free")
+    c.print("[INFO] Escribe tu solicitud en lenguaje natural o usa /help para ver comandos.")
+    c.print("[INFO] F2 = editor de contexto textual | F3 = modelos | F5 = paquete/tipo forzado | Tab = autocompletar")
     c.rule()
     ctx = Table(box=box.ROUNDED, show_header=True)
     ctx.add_column("#", style="dim", width=4)
     ctx.add_column("Fuente", style="cyan", width=22)
     ctx.add_column("Contenido", width=56)
-    ctx.add_row("1", "contexto-academico", "Sistema de gestion universitaria. Actores: Estudiante, Profesor... [900 chars]")
-    ctx.add_row("2", "contexto-universidad", "La universidad tiene 3 facultades: Ingenieria, Ciencias, Letras... [180 chars]")
+    ctx.add_row("1", "texto:manual", "generar un diagrama bpmn de un restaurante")
     c.print(ctx)
     c.print()
-    # Status
-    c.print(Panel("[green]Analista listo[/green]  |  [green]Arquitecto listo[/green]  |  [green]Validador listo[/green]", title="Estado"))
+    c.print("[OK] Contexto textual cargado (1 lineas).")
+    c.print("[OK] Carpeta de exportacion: documentos/")
     c.print()
-    # Use Text to avoid markup issues
+    c.print(Panel(
+        "[bold cyan]Area de trabajo  (salida, codigo y comandos)[/bold cyan]",
+        border_style="bright_blue"
+    ))
     from rich.text import Text
     foot = Text()
     foot.append("F1:Ayuda  F2:Contexto  F3:Modelo  F5:Generar  F10:Salir  /tipo /modelos /ctx /api", style="dim")
     c.print(Panel(foot))
     save_screenshot("img_01_main", c)
 
-    # ── F5 Dialog ──
+    # ── F5 Dialog (styled inline prompt) ──
     c = Console(record=True, width=100, height=35, force_terminal=True)
-    c.print("[bold cyan]Seleccionar tipo(s) de diagrama (F5)[/bold cyan]")
+    c.print("[bold cyan]Selecciona tipo(s) de diagrama[/bold cyan]")
     c.rule()
-    t = Table(box=box.HEAVY, show_header=True)
-    t.add_column("", width=4)
-    t.add_column("Tipo", width=20)
-    t.add_column("Formato", width=12)
-    t.add_column("Descripcion", width=40)
-    items = [
-        ("[X]", "uml-clase", "plantuml", "Diagrama de clases UML"),
-        ("[ ]", "uml-secuencia", "mermaid", "Diagrama de secuencia"),
-        ("[X]", "uml-caso-uso", "plantuml", "Diagrama de casos de uso"),
-        ("[ ]", "uml-flujo", "mermaid", "Diagrama de flujo"),
-        ("[X]", "bpmn", "mermaid", "Diagrama BPMN"),
-        ("[ ]", "er", "mermaid", "Modelo Entidad-Relacion"),
-        ("[ ]", "c4-contexto", "mermaid", "Diagrama C4 Contexto"),
-        ("[ ]", "c4-contenedor", "mermaid", "Diagrama C4 Contenedor"),
-        ("[ ]", "arquitectura", "mermaid", "Diagrama de arquitectura"),
-    ]
-    for sel, tipo, fmt, desc in items:
-        t.add_row(sel, tipo, fmt, desc, style="green" if "[X]" in sel else "white")
-    c.print(t)
-    c.print()
-    c.print("[dim]Enter=OK  Esc=Cancelar  Espacio=alternar[/dim]")
-    c.print(Panel(Text("F1:Ayuda  F5:Generar  Esc:Cancelar", style="dim")))
+    c.print("")
+    c.print("  [1] Detectar automaticamente desde solicitud/contexto")
+    c.print("  [2] Diagrama de Casos de Uso")
+    c.print("  [3] Diagrama de Secuencia")
+    c.print("  [4] [bold]Diagrama BPMN de Proceso[/bold]  <-- detectado")
+    c.print("  [5] Modelo Entidad-Relacion")
+    c.print("  [6] Paquete completo (4 diagramas)")
+    c.print("")
+    c.print("[dim]ENTER = auto-detect  |  'all' = todos  |  Numeros separados por coma (ej: 1,3)[/dim]")
+    c.print("")
+    c.print(Panel(
+        Text("F1:Ayuda  F5:Generar  /tipo para forzar tipo", style="dim")
+    ))
     save_screenshot("img_02_f5_dialog", c)
 
     # ── Model Selection ──
@@ -93,41 +90,35 @@ def main():
     t.add_column("Estado", width=14)
     t.add_row("[X]", "north", "north-mini-code-free", "[green]Activo[/]")
     t.add_row("[ ]", "nemotron", "nemotron-3-ultra-free", "[green]Disponible[/]")
-    t.add_row("[ ]", "minimax", "minimax-m3-free", "[red]No disponible[/]")
-    t.add_row("[ ]", "deepseek", "deepseek-v4-flash-free", "[green]Disponible[/]")
+    t.add_row("[ ]", "deepseek", "deepseek-v4-flash-free", "[yellow]Lento[/]")
+    t.add_row("[ ]", "mimo", "mimo-v2.5-free", "[green]Disponible[/]")
     c.print(t)
     c.print()
+    c.print("[yellow]Nota: minimax-m3-free y qwen3.6-plus-free eliminados (no disponibles).[/yellow]")
     c.print("[dim]Flechas=navegar  Enter=seleccionar  Esc=cancelar[/dim]")
     c.print(Panel(Text("F1:Ayuda  F3:Modelo  /modelo <alias> para cambiar", style="dim")))
     save_screenshot("img_03_model_selection", c)
 
-    # ── Clarification Dialog ──
+    # ── Clarification Dialog (styled radiolist) ──
     c = Console(record=True, width=100, height=35, force_terminal=True)
     c.print("[bold yellow]Agente de Clarificacion -- Informacion Insuficiente[/bold yellow]")
     c.rule()
-    c.print(Panel(
-        "[yellow]Solicitud:[/] hacer un diagrama bpmn de un restaurante\n\n"
-        "[cyan]Contexto:[/] No hay contexto cargado.\n"
-        "[cyan]Analisis IA:[/] Tipo BPMN detectado, pero faltan procesos y actores.",
-        title="Analisis por IA", border_style="yellow"
-    ))
     c.print()
-    c.print("[bold]Preguntas generadas por IA (basadas en el contexto):[/bold]")
+    c.print("[cyan]Pregunta de la IA:[/cyan]")
     c.print()
-    c.print("  He visto que quieres modelar un restaurante en BPMN.")
-    c.print("  Para generar un diagrama preciso, necesito saber:")
+    c.print("  He detectado que quieres modelar un restaurante en BPMN.")
+    c.print("  Para ser mas preciso, dime: [bold]que tipo de restaurante?[/bold]")
     c.print()
-    c.print("  [bold]1.[/] Que tipo de restaurante?")
-    c.print("     (ej: fast food, fine dining, cafeteria)")
-    c.print("  [bold]2.[/] Que procesos quieres modelar?")
-    c.print("     (ej: preparacion de alimentos, gestion de pedidos, atencion al cliente)")
-    c.print("  [bold]3.[/] Que actores intervienen?")
-    c.print("     (ej: Mesero, Cocinero, Cliente, Cajero)")
+    c.print("[cyan]Opciones disponibles:[/cyan]")
     c.print()
-    c.print("  [bold]0.[/] [dim]Quieres que genere el diagrama a mi criterio?[/dim]")
+    c.print("  [1] Fast food / comida rapida")
+    c.print("  [2] Fine dining / alta cocina")
+    c.print("  [3] Cafeteria / bar")
+    c.print("  [4] [dim]Generar a mi criterio (usa datos genericos)[/dim]")
     c.print()
-    c.print("[dim]Escribe tu respuesta o selecciona una opcion:[/dim]")
-    c.print(Panel(Text("F1:Ayuda  Esc:Saltar preguntas  Agente de Clarificacion v2.0 (IA)", style="dim")))
+    c.print("[cyan]>>  Selecciona una opcion (1-4):[/cyan]")
+    c.print()
+    c.print(Panel(Text("F1:Ayuda  Esc:Saltar preguntas  Agente de Clarificacion v5.2 (IA)", style="dim")))
     save_screenshot("img_04_clarification", c)
 
     # ── Tests Output ──
@@ -146,7 +137,7 @@ def main():
     t.add_row("EC05", "Solicitud generica restaurante", "bpmn (vaga)", "[yellow]Clarificacion[/]")
     c.print(t)
     c.print()
-    c.print("[bold green]Tests Unitarios (10/10):[/bold green]")
+    c.print("[bold green]Tests Unitarios:[/bold green]")
     c.print("  [green]OK[/] test_session_context_management")
     c.print("  [green]OK[/] test_session_pending_request")
     c.print("  [green]OK[/] test_session_output_dir_persists")
@@ -157,6 +148,9 @@ def main():
     c.print("  [green]OK[/] test_validator_prompt")
     c.print("  [green]OK[/] test_clarification_context")
     c.print("  [green]OK[/] test_latest_context")
+    c.print("  [green]OK[/] test_word_boundary_infer ('bpmn' -> ['bpmn'], 'restaurante' sin 'er')")
+    c.print("  [green]OK[/] test_dead_model_filter (minimax eliminado)")
+    c.print("  [green]OK[/] test_a_mi_criterio_variants (9 expresiones)")
     save_screenshot("img_05_test_output", c)
 
     # ── Generated Output ──
@@ -175,8 +169,10 @@ def main():
     t.add_row("ER", "PlantUML", "1", "0", "[green]Si[/]")
     c.print(t)
     c.print()
-    c.print("[cyan]Orquestacion:[/cyan] LangGraph StateGraph con fallback iterativo")
-    c.print("[cyan]Backend:[/cyan] north-mini-code-free (OpenCode Zen)")
+    c.print("[cyan]Orquestacion:[/cyan] LangGraph StateGraph con flujo sincrono (sin hilos)")
+    c.print("[cyan]Backend:[/cyan] north-mini-code-free (OpenCode)")
+    c.print("[cyan]Estilo dialogos:[/cyan] DIALOG_STYLE (33 targets, fondo #010409, titulos cyan)")
+    c.print("[cyan]Clarificacion:[/cyan] radiolist interactivo con opciones de la IA")
     c.print()
     code = (
         "@startuml\n"

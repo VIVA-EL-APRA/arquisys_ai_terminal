@@ -309,10 +309,6 @@ class ArquiSysAI_TUI:
         self.cmd_completer = build_completer(self.available_models.keys())
         self.processing    = False
 
-        # ── Inline prompt system (sin dialogs flotantes) ──────────
-        self._inline_event: threading.Event | None = None
-        self._inline_result: list[str] = []
-
         self._refresh_models(silent=True)
 
         # ── Buffers ──────────────────────────────────────────────
@@ -404,7 +400,8 @@ class ArquiSysAI_TUI:
         doc = Document(content, cursor_position=len(content))
         try:
             self.output_buffer.set_document(doc, bypass_readonly=True)
-            get_app().invalidate()
+            if hasattr(self, 'app'):
+                self.app.invalidate()
         except Exception:
             pass
 
@@ -647,20 +644,6 @@ class ArquiSysAI_TUI:
 
         buff.set_document(Document("", 0), bypass_readonly=True)
 
-        # ── Inline prompt: redirect to the waiting handler ─────────
-        if self._inline_event is not None:
-            logged_text = text
-            lower = text.lower()
-            if lower.startswith("/api set") or lower.startswith("/api key") or lower.startswith("/api token"):
-                logged_text = " ".join(text.split()[:2]) + " ********"
-            elif lower.startswith("/api ") and lower not in {"/api", "/api status", "/api ver", "/api show"}:
-                logged_text = text.split()[0] + " ********"
-            self._log_user(f"[respuesta] {logged_text}" if not text.startswith("/") else logged_text)
-            self._inline_result.append(text)
-            self._inline_event.set()
-            return
-
-        # ── Normal flow ────────────────────────────────────────────
         if not self.processing:
             logged_text = text
             lower = text.lower()
@@ -692,25 +675,17 @@ class ArquiSysAI_TUI:
     #  Comandos
     # ══════════════════════════════════════════════════════════════
 
-    def _inline_input(self) -> str | None:
-        """Muestra un prompt inline y espera la respuesta del usuario
-        en el campo de entrada principal. No usa dialogs flotantes."""
-        import threading
-
-        self._inline_event = threading.Event()
-        self._inline_result.clear()
-
-        app = get_app()
-        # Keep the input area focused for the user to type
-        app.layout.focus(self.input_area)
-
-        # Poll for the event while keeping UI responsive
-        while not self._inline_event.is_set():
-            self._inline_event.wait(0.05)
-            app.invalidate()
-
-        self._inline_event = None
-        return self._inline_result[0] if self._inline_result else None
+    def _inline_input(self, prompt_text: str = "") -> str | None:
+        """Prompt the user using the built-in input_dialog with full TUI styling.
+        This runs a nested event loop so it blocks until the user responds."""
+        from prompt_toolkit.shortcuts import input_dialog
+        return input_dialog(
+            title="ArquiSysAI",
+            text=prompt_text or "Ingresa tu respuesta:",
+            ok_text="OK",
+            cancel_text="Cancelar",
+            style=DIALOG_STYLE,
+        ).run()
 
     def _handle_command(self, text: str):
         parts = text.strip().lstrip("/").split()
@@ -784,12 +759,11 @@ class ArquiSysAI_TUI:
 
     def _prompt_output_dir(self) -> bool:
         current = self.session.output_dir
-        self._log_system(
-            "Carpeta de exportacion:\n"
-            f"  Actual: {current}\n"
-            "  Ingresa la ruta (ENTER para usar actual, 'cancel' para cancelar):"
+        value = self._inline_input(
+            "Carpeta de exportacion\n"
+            f"Actual: {current}\n\n"
+            "Ingresa la ruta (ENTER para usar actual, 'cancel' para cancelar):"
         )
-        value = self._inline_input()
         if value is None or value.strip().lower() == "cancel":
             self._log_warn("Seleccion de carpeta cancelada.")
             return False
@@ -815,19 +789,19 @@ class ArquiSysAI_TUI:
             opts.extend(PACKAGE_TYPES)
             opts.append(("__all__", "Paquete completo (4 diagramas)"))
 
-        self._log_system("Selecciona tipo(s) de diagrama (numeros separados por coma):")
+        lines = ["Selecciona tipo(s) de diagrama:", ""]
         for i, (tipo, label) in enumerate(opts, 1):
             txt = label
             if tipo in validos:
                 txt = f"[{tipo}] {label}"
-            elif tipo == "__all__":
-                txt = label
-            else:
-                txt = label
-            self._log(f"  [{i}] {txt}")
-        self._log("  [ENTER] = auto-detect | 'all' = todos | numeros separados por coma (ej: 1,3)")
+            lines.append(f"  [{i}] {txt}")
+        lines.extend([
+            "",
+            "  ENTER = auto-detect  |  'all' = todos",
+            "  Números separados por coma (ej: 1,3):",
+        ])
 
-        answer = self._inline_input()
+        answer = self._inline_input("\n".join(lines))
         if answer is None:
             return None
         answer = answer.strip()
@@ -872,22 +846,21 @@ class ArquiSysAI_TUI:
         return []
 
     def _ask_clarification(self, question: str, options: list[str] | None = None) -> str | None:
-        self._log_system(question)
         if options:
-            self._log("  Opciones:")
+            lines = [question, "", "  Opciones:"]
             for i, opt in enumerate(options, 1):
                 marker = ">" if i == len(options) else " "
-                default = "(por defecto)" if i == len(options) else ""
-                self._log(f"    {marker} [{i}] {opt} {default}")
-            self._log("  Escribe el numero de tu eleccion (o texto libre):")
-            answer = self._inline_input()
+                suffix = " (por defecto)" if i == len(options) else ""
+                lines.append(f"    {marker} [{i}] {opt}{suffix}")
+            lines.append("")
+            lines.append("Escribe el número de tu elección (o texto libre):")
+            answer = self._inline_input("\n".join(lines))
             if answer and answer.strip().isdigit():
                 idx = int(answer.strip()) - 1
                 if 0 <= idx < len(options):
                     return options[idx]
             return answer
-        self._log("  Escribe tu respuesta:")
-        return self._inline_input()
+        return self._inline_input(question)
 
     def _a_mi_criterio(self, lowered: str) -> bool:
         return lowered in (
@@ -953,10 +926,6 @@ class ArquiSysAI_TUI:
         if not self._ensure_output_dir_selected():
             return
 
-        # Run the full gen flow in a background thread so inline input can block
-        self._start_thread(self._f5_flow)
-
-    def _f5_flow(self):
         self._run_clarification_cycle()
 
         forced = self.session.forced_type
@@ -979,7 +948,7 @@ class ArquiSysAI_TUI:
             except Exception:
                 tipos = infer_package_types_from_text(self._generation_text())
 
-        # If auto-detection failed, show the inline prompt for manual selection
+        # If auto-detection failed, show the dialog for manual selection
         if not tipos:
             tipos = self._select_f5_types()
             if tipos is None:
@@ -992,7 +961,7 @@ class ArquiSysAI_TUI:
                 return
 
         self._log_system(f"F5: generando {', '.join(tipos)} en {self.session.output_dir}")
-        self._run_custom_package(tipos)
+        self._start_thread(lambda: self._run_custom_package(tipos))
 
     def _mask_api_key(self, api_key: str) -> str:
         if not api_key:
@@ -1592,6 +1561,8 @@ class ArquiSysAI_TUI:
                 self._build_app()
             elif result == "__f5__":
                 self._handle_f5_generation()
+                # No need to rebuild layout — the generation flow ran synchronously
+                # and the nested event loop restored the main app cleanly.
                 self._build_layout()
                 self._build_keybindings()
                 self._build_app()
